@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>DeepSeek 随身版</title>
+    <title>DeepSeek 智能客户端</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
@@ -24,41 +24,70 @@
         textarea:focus { outline: none; box-shadow: none; }
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
+        
+        /* 侧边栏过渡动画 */
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 dark:bg-darkbg dark:text-gray-100 h-screen flex flex-col overflow-hidden">
+<body class="bg-gray-50 text-gray-900 dark:bg-darkbg dark:text-gray-100 h-screen flex overflow-hidden relative">
 
-    <header class="flex-none p-3 bg-white dark:bg-darksurface border-b border-gray-200 dark:border-gray-800 shadow-sm z-10">
-        <div class="flex items-center justify-between mb-2">
-            <div class="font-bold text-base flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                DeepSeek 随身版
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity duration-300"></div>
+    
+    <aside id="sidebar" class="fixed top-0 bottom-0 left-0 w-72 bg-white dark:bg-darksurface border-r border-gray-200 dark:border-gray-800 z-50 sidebar-transition -translate-x-full flex flex-col">
+        <div class="p-3 border-b border-gray-200 dark:border-gray-800 flex items-center gap-2">
+            <button id="newChatBtn" class="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                发起新对话
+            </button>
+        </div>
+        
+        <div class="p-2 flex-1 overflow-y-auto space-y-1" id="sessionList">
             </div>
+
+        <div class="p-3 border-t border-gray-200 dark:border-gray-800">
+            <button id="clearAllBtn" class="w-full py-2 px-3 bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400 border border-red-200 dark:border-red-900/40 rounded-lg text-xs font-medium">
+                清除所有对话数据
+            </button>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col h-full overflow-hidden w-full">
+        <header class="flex-none p-3 bg-white dark:bg-darksurface border-b border-gray-200 dark:border-gray-800 shadow-sm z-10 flex items-center justify-between gap-2">
             <div class="flex items-center gap-2">
-                <button id="clearBtn" class="px-2 py-1 text-xs bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400 rounded border border-red-200 dark:border-red-900/50">清空历史</button>
+                <button id="menuBtn" class="p-1.5 rounded-lg text-gray-600 dark:text-gray-300 active:bg-gray-100 dark:active:bg-gray-800" title="打开侧边栏">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+                <div class="font-bold text-base tracking-wide" id="currentChatTitle">DeepSeek AI</div>
+            </div>
+            
+            <div class="flex items-center gap-2">
                 <select id="modelSelect" class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 rounded outline-none border border-gray-200 dark:border-gray-700">
                     <option value="deepseek-chat">V3 (Chat)</option>
                     <option value="deepseek-reasoner">R1 (Reasoner)</option>
                 </select>
             </div>
-        </div>
-        <input type="password" id="apiKey" placeholder="输入 API Key 自动保存..." 
-            class="w-full px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg outline-none border border-transparent focus:border-blue-500" />
-    </header>
+        </header>
 
-    <main id="chatContainer" class="flex-1 overflow-y-auto p-3 space-y-5 scroll-smooth">
-        <div id="welcomeBox" class="text-center text-gray-400 text-xs my-8">暂无聊天记录，输入消息即可开始</div>
-    </main>
-
-    <footer class="flex-none p-3 bg-white dark:bg-darksurface border-t border-gray-200 dark:border-gray-800">
-        <div class="relative bg-gray-100 dark:bg-gray-800 rounded-xl flex items-end p-1">
-            <textarea id="userInput" rows="1" placeholder="说点什么..." 
-                class="w-full bg-transparent p-2.5 pl-3 pr-12 resize-none max-h-32 overflow-y-auto text-sm m-0 text-gray-900 dark:text-gray-100"></textarea>
-            <button id="sendBtn" class="absolute right-2 bottom-2 p-1.5 rounded-lg bg-blue-600 text-white active:bg-blue-700 disabled:bg-gray-400 transition-colors">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-            </button>
+        <div class="bg-amber-50 dark:bg-amber-950/20 px-3 py-2 border-b border-amber-200 dark:border-amber-900/40 text-xs flex items-center justify-between gap-4">
+            <span class="text-amber-800 dark:text-amber-400 flex-shrink-0 font-medium">API 状态：</span>
+            <input type="password" id="apiKey" placeholder="去设置面板或在此输入密钥..." 
+                class="flex-1 max-w-xs px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded outline-none text-xs" />
         </div>
-    </footer>
+
+        <main id="chatContainer" class="flex-1 overflow-y-auto p-3 space-y-5 scroll-smooth bg-gray-50 dark:bg-darkbg">
+            <div id="welcomeBox" class="text-center text-gray-400 text-xs my-12">暂无当前对话记录，开始输入吧</div>
+        </main>
+
+        <footer class="flex-none p-3 bg-white dark:bg-darksurface border-t border-gray-200 dark:border-gray-800">
+            <div class="relative bg-gray-100 dark:bg-gray-800 rounded-xl flex items-end p-1">
+                <textarea id="userInput" rows="1" placeholder="说点什么..." 
+                    class="w-full bg-transparent p-2.5 pl-3 pr-12 resize-none max-h-32 overflow-y-auto text-sm m-0 text-gray-900 dark:text-gray-100"></textarea>
+                <button id="sendBtn" class="absolute right-2 bottom-2 p-1.5 rounded-lg bg-blue-600 text-white active:bg-blue-700 disabled:bg-gray-400 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                </button>
+            </div>
+        </footer>
+    </div>
 
     <script>
         const DOM = {
@@ -67,52 +96,180 @@
             chatContainer: document.getElementById('chatContainer'),
             userInput: document.getElementById('userInput'),
             sendBtn: document.getElementById('sendBtn'),
-            clearBtn: document.getElementById('clearBtn'),
+            menuBtn: document.getElementById('menuBtn'),
+            sidebar: document.getElementById('sidebar'),
+            sidebarOverlay: document.getElementById('sidebarOverlay'),
+            sessionList: document.getElementById('sessionList'),
+            newChatBtn: document.getElementById('newChatBtn'),
+            clearAllBtn: document.getElementById('clearAllBtn'),
+            currentChatTitle: document.getElementById('currentChatTitle'),
             welcomeBox: document.getElementById('welcomeBox')
         };
 
-        let messageHistory = [];
+        // 数据结构定义：sessions = [{ id, title, model, history: [] }]
+        let sessions = [];
+        let currentSessionId = null;
         let isGenerating = false;
 
-        // 【关键改动：初始化时从 localStorage 加载数据】
+        // ==================== 核心：数据初始化 ====================
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('ds_key')) DOM.apiKey.value = localStorage.getItem('ds_key');
             if (localStorage.getItem('ds_model')) DOM.modelSelect.value = localStorage.getItem('ds_model');
-            if (localStorage.getItem('ds_history')) {
-                messageHistory = JSON.parse(localStorage.getItem('ds_history'));
-                if (messageHistory.length > 0) {
-                    DOM.welcomeBox.style.display = 'none';
-                    // 恢复历史 UI 气泡
-                    messageHistory.forEach((msg, idx) => {
-                        const tempId = msg.role === 'assistant' ? `hist-${idx}` : '';
-                        appendMessageDOM(msg.role, msg.content, tempId);
-                        if (msg.role === 'assistant') {
-                            const container = document.getElementById(tempId);
-                            if(container) {
-                                container.querySelector('.msg-content').innerHTML = `<div class="markdown-body text-sm">${marked.parse(msg.content)}</div>`;
-                                container.setAttribute('data-raw', msg.content);
-                            }
-                        }
-                    });
-                    document.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
-                    scrollToBottom();
+            
+            // 加载会话列表
+            if (localStorage.getItem('ds_sessions')) {
+                sessions = JSON.parse(localStorage.getItem('ds_sessions'));
+            }
+            
+            currentSessionId = localStorage.getItem('ds_current_session_id');
+
+            // 如果没有会话，则自动创建一个空新会话
+            if (sessions.length === 0) {
+                createNewSession();
+            } else {
+                if (!currentSessionId || !sessions.find(s => s.id === currentSessionId)) {
+                    currentSessionId = sessions[0].id;
                 }
+                renderSessionList();
+                loadSessionChat(currentSessionId);
             }
         });
 
-        // 监听配置变动并实时保存
+        // 监听基础配置变动
         DOM.apiKey.addEventListener('input', () => localStorage.setItem('ds_key', DOM.apiKey.value.trim()));
-        DOM.modelSelect.addEventListener('change', () => localStorage.setItem('ds_model', DOM.modelSelect.value));
-        
-        // 清空历史按钮
-        DOM.clearBtn.addEventListener('click', () => {
-            if (confirm('确定要清空所有聊天记录吗？')) {
-                messageHistory = [];
-                localStorage.removeItem('ds_history');
+        DOM.modelSelect.addEventListener('change', () => {
+            localStorage.setItem('ds_model', DOM.modelSelect.value);
+            const activeSession = sessions.find(s => s.id === currentSessionId);
+            if (activeSession) {
+                activeSession.model = DOM.modelSelect.value;
+                saveToLocalStorage();
+            }
+        });
+
+        // ==================== 侧边栏机制 ====================
+        function toggleSidebar(open) {
+            if (open) {
+                DOM.sidebarOverlay.classList.remove('hidden');
+                setTimeout(() => DOM.sidebarOverlay.classList.remove('opacity-0'), 10);
+                DOM.sidebar.classList.remove('-translate-x-full');
+            } else {
+                DOM.sidebarOverlay.classList.add('opacity-0');
+                DOM.sidebar.classList.add('-translate-x-full');
+                setTimeout(() => DOM.sidebarOverlay.classList.add('hidden'), 300);
+            }
+        }
+
+        DOM.menuBtn.addEventListener('click', () => toggleSidebar(true));
+        DOM.sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
+        DOM.newChatBtn.addEventListener('click', () => {
+            createNewSession();
+            toggleSidebar(false);
+        });
+
+        DOM.clearAllBtn.addEventListener('click', () => {
+            if (confirm('警告：这将删除本地存储的所有对话，无法恢复！')) {
+                localStorage.removeItem('ds_sessions');
+                localStorage.removeItem('ds_current_session_id');
+                sessions = [];
                 location.reload();
             }
         });
 
+        // ==================== 会话状态管理 ====================
+        function createNewSession() {
+            const id = 'sess-' + Date.now();
+            const newSess = {
+                id: id,
+                title: '新对话',
+                model: DOM.modelSelect.value,
+                history: []
+            };
+            sessions.unshift(newSess); // 新生成的对话塞到首位
+            currentSessionId = id;
+            
+            saveToLocalStorage();
+            renderSessionList();
+            loadSessionChat(id);
+        }
+
+        function loadSessionChat(id) {
+            currentSessionId = id;
+            localStorage.setItem('ds_current_session_id', id);
+            
+            const session = sessions.find(s => s.id === id);
+            if (!session) return;
+
+            // 更新顶部标题和模型选择器
+            DOM.currentChatTitle.innerText = truncateTitle(session.title, 14);
+            DOM.modelSelect.value = session.model;
+
+            // 清空现有 DOM
+            const bubbles = DOM.chatContainer.querySelectorAll('.chat-bubble-row');
+            bubbles.forEach(b => b.remove());
+
+            if (session.history.length === 0) {
+                DOM.welcomeBox.style.display = 'block';
+            } else {
+                DOM.welcomeBox.style.display = 'none';
+                session.history.forEach((msg, idx) => {
+                    const tempId = msg.role === 'assistant' ? `hist-${id}-${idx}` : '';
+                    appendMessageDOM(msg.role, msg.content, tempId);
+                    if (msg.role === 'assistant') {
+                        const container = document.getElementById(tempId);
+                        if (container) {
+                            container.querySelector('.msg-content').innerHTML = `<div class="markdown-body text-sm">${marked.parse(msg.content)}</div>`;
+                            container.setAttribute('data-raw', msg.content);
+                        }
+                    }
+                });
+                document.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
+                scrollToBottom();
+            }
+
+            // 点选后高亮切换
+            renderSessionList();
+        }
+
+        function renderSessionList() {
+            DOM.sessionList.innerHTML = '';
+            sessions.forEach(session => {
+                const isActive = session.id === currentSessionId;
+                const activeClass = isActive 
+                    ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 font-medium border-l-4 border-blue-600' 
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60';
+                
+                const itemHtml = `
+                    <div class="group flex items-center justify-between p-2.5 rounded-lg text-sm cursor-pointer transition-all ${activeClass}" onclick="loadSessionChat('${session.id}')">
+                        <div class="flex items-center gap-2 overflow-hidden flex-1">
+                            <svg class="w-4 h-4 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            <span class="truncate pr-1">${escapeHTML(session.title)}</span>
+                        </div>
+                        <button onclick="event.stopPropagation(); deleteSession('${session.id}')" class="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-opacity" title="删除">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                `;
+                DOM.sessionList.insertAdjacentHTML('beforeend', itemHtml);
+            });
+        }
+
+        function deleteSession(id) {
+            if (sessions.length <= 1) {
+                alert('请至少保留一个会话记录！');
+                return;
+            }
+            if (confirm('确定要删除这个对话吗？')) {
+                sessions = sessions.filter(s => s.id !== id);
+                if (currentSessionId === id) {
+                    currentSessionId = sessions[0].id;
+                }
+                saveToLocalStorage();
+                renderSessionList();
+                loadSessionChat(currentSessionId);
+            }
+        }
+
+        // ==================== 核心通信与数据绑定 ====================
         DOM.userInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 128) + 'px';
@@ -123,18 +280,27 @@
         async function handleSend() {
             const text = DOM.userInput.value.trim();
             const apiKey = DOM.apiKey.value.trim();
-            const model = DOM.modelSelect.value;
-
+            
             if (!text || isGenerating) return;
             if (!apiKey) return alert("记得先输入 API Key 噢！");
+
+            const session = sessions.find(s => s.id === currentSessionId);
+            if (!session) return;
 
             DOM.welcomeBox.style.display = 'none';
             DOM.userInput.value = '';
             DOM.userInput.style.height = 'auto';
             
+            // 首次发问时自动根据前几个字更新对话标题
+            if (session.history.length === 0) {
+                session.title = text.substring(0, 15) + (text.length > 15 ? '...' : '');
+                DOM.currentChatTitle.innerText = truncateTitle(session.title, 14);
+            }
+
             appendMessageDOM('user', text);
-            messageHistory.push({ role: 'user', content: text });
-            saveHistoryToLocal(); // 保存用户发送的消息
+            session.history.push({ role: 'user', content: text });
+            saveToLocalStorage();
+            renderSessionList();
 
             const msgId = 'msg-' + Date.now();
             appendMessageDOM('assistant', '', msgId);
@@ -144,26 +310,26 @@
                 const response = await fetch('https://api.deepseek.com/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model: model, messages: messageHistory, stream: true })
+                    body: JSON.stringify({ model: session.model, messages: session.history, stream: true })
                 });
 
                 if (!response.ok) {
                     updateMessageDOM(msgId, '', `<span class="text-red-500">请求失败 (${response.status})</span>`, false);
-                    messageHistory.pop();
-                    saveHistoryToLocal();
+                    session.history.pop();
+                    saveToLocalStorage();
                     return;
                 }
-                await processStream(response.body.getReader(), msgId);
+                await processStream(response.body.getReader(), msgId, session);
             } catch (err) {
                 updateMessageDOM(msgId, '', `<span class="text-red-500">网络错误: ${err.message}</span>`, false);
-                messageHistory.pop();
-                saveHistoryToLocal();
+                session.history.pop();
+                saveToLocalStorage();
             } finally {
                 setLoadingState(false);
             }
         }
 
-        async function processStream(reader, msgId) {
+        async function processStream(reader, msgId, session) {
             const decoder = new TextDecoder('utf-8');
             let buffer = '', fullContent = '', fullReasoning = '';
 
@@ -192,13 +358,13 @@
                 }
             } finally {
                 updateMessageDOM(msgId, fullReasoning, fullContent, false);
-                // 【保存完整上下文】将 AI 回复推入历史，并同步到本地存储
-                messageHistory.push({ role: 'assistant', content: fullContent });
-                saveHistoryToLocal();
+                session.history.push({ role: 'assistant', content: fullContent });
+                saveToLocalStorage();
                 document.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
             }
         }
 
+        // ==================== 工具函数群 ====================
         function updateMessageDOM(msgId, reasoning, content, isStreaming) {
             const container = document.getElementById(msgId);
             if (!container) return;
@@ -229,7 +395,7 @@
         function appendMessageDOM(role, text, id = '') {
             const isUser = role === 'user';
             const html = `
-                <div class="flex flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}" ${id ? `id="${id}"` : ''}>
+                <div class="chat-bubble-row flex flex-col gap-1 ${isUser ? 'items-end' : 'items-start'}" ${id ? `id="${id}"` : ''}>
                     <div class="px-4 py-2.5 rounded-2xl max-w-[92%] shadow-sm ${isUser ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white dark:bg-darksurface border border-gray-100 dark:border-gray-800 rounded-bl-sm'}">
                         <div class="msg-content whitespace-pre-wrap ${isUser ? 'text-sm' : ''}">${isUser ? escapeHTML(text) : ''}</div>
                     </div>
@@ -266,20 +432,19 @@
             } catch (err) { alert("复制失败~"); }
         }
 
-        function saveHistoryToLocal() {
-            localStorage.setItem('ds_history', JSON.stringify(messageHistory));
+        function saveToLocalStorage() {
+            localStorage.setItem('ds_sessions', JSON.stringify(sessions));
+            localStorage.setItem('ds_current_session_id', currentSessionId);
         }
 
         function setLoadingState(loading) {
             isGenerating = loading;
             DOM.sendBtn.disabled = loading;
-            DOM.sendBtn.innerHTML = loading 
-                ? `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`
-                : `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>`;
         }
 
         function scrollToBottom() { DOM.chatContainer.scrollTop = DOM.chatContainer.scrollHeight; }
         function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag])); }
+        function truncateTitle(str, max) { return str.length > max ? str.substring(0, max) + '...' : str; }
     </script>
 </body>
 </html>
