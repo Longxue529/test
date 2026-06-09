@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>深欲 - DeepSeek 色情角色扮演</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
@@ -13,123 +13,128 @@
         .chat-container { scrollbar-width: thin; scrollbar-color: #f472b6 #1f2937; }
         .message { max-width: 85%; }
         
-        /* 移动端优化 */
+        /* 移动端侧边栏 */
+        .sidebar { transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sidebar.open { transform: translateX(0); }
+        
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); transition: transform 0.3s ease-in-out; }
-            .sidebar.open { transform: translateX(0); }
             .message { max-width: 92%; }
-            textarea { font-size: 16px !important; }
-            .chat-container { padding-top: 4.5rem; }
+            .chat-container { padding-top: 1rem; }
         }
         
+        input, textarea, select { font-size: 16px !important; }
         .prose { color: inherit; }
         .prose p { margin: 0.4em 0; }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
-    <div class="flex h-screen overflow-hidden relative">
+<body class="bg-gray-950 text-gray-100 h-[100dvh] overflow-hidden flex relative w-full">
 
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity duration-300 opacity-0 md:hidden" onclick="toggleSidebar()"></div>
+
+    <!-- 侧边栏 -->
+    <div id="sidebar" class="sidebar absolute md:relative md:transform-none z-50 w-[80%] max-w-[320px] md:w-80 bg-gray-900 border-r border-gray-800 flex flex-col h-full shadow-2xl md:shadow-none">
+        <div class="p-4 border-b border-gray-800 flex items-center justify-between bg-black h-14 md:h-auto shrink-0">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-fire text-pink-500 text-xl md:text-2xl"></i>
+                <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">深欲</h1>
+            </div>
+            <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-400 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <!-- API 设置 -->
+        <div class="p-4 border-b border-gray-800 space-y-3 shrink-0">
+            <input id="apiKey" type="password" placeholder="API Key (sk-...)" 
+                   class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:border-pink-500 focus:outline-none transition-colors">
+            <div class="flex gap-2">
+                <select id="model" class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none">
+                    <option value="deepseek-chat">deepseek-chat</option>
+                    <option value="deepseek-reasoner">deepseek-reasoner</option>
+                </select>
+                <button onclick="saveSettings()" class="px-5 bg-pink-600 hover:bg-pink-700 rounded-xl text-sm font-medium transition-colors">保存</button>
+            </div>
+        </div>
+
+        <!-- 角色列表 -->
+        <div class="p-4 border-b border-gray-800 flex-1 overflow-y-auto min-h-0">
+            <div class="flex justify-between items-center mb-3 sticky top-0 bg-gray-900 pb-2 z-10">
+                <h2 class="text-xs uppercase tracking-widest text-gray-400 font-semibold">预设角色</h2>
+                <button onclick="newCustomRole()" class="text-xs px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-full transition-colors"><i class="fas fa-plus mr-1"></i>新建</button>
+            </div>
+            <div id="roleList" class="space-y-2"></div>
+        </div>
+
+        <!-- 系统提示词 -->
+        <div class="p-4 border-t border-gray-800 shrink-0 hidden md:block">
+            <h2 class="text-xs uppercase tracking-widest text-gray-400 mb-2 font-semibold">系统提示词</h2>
+            <textarea id="systemPrompt" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-sm focus:border-pink-500 focus:outline-none resize-none"></textarea>
+            <div class="flex gap-2 mt-2">
+                <button onclick="saveSystemPrompt()" class="flex-1 py-2 bg-pink-600 hover:bg-pink-700 rounded-xl text-sm transition-colors">保存</button>
+                <button onclick="resetSystemPrompt()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm transition-colors">默认</button>
+            </div>
+        </div>
+
+        <!-- 对话历史 -->
+        <div class="p-4 border-t border-gray-800 flex flex-col shrink-0 h-52">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-xs uppercase tracking-widest text-gray-400 font-semibold">对话历史</h2>
+                <button onclick="newChat()" class="text-pink-400 p-1"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="historyList" class="flex-1 overflow-y-auto space-y-1 text-sm"></div>
+        </div>
+    </div>
+
+    <!-- 主聊天区域 -->
+    <div class="flex-1 flex flex-col w-full h-full relative">
         <!-- 移动端顶部栏 -->
-        <div class="md:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 border-b border-gray-800 z-50 flex items-center px-4 justify-between">
-            <button onclick="toggleSidebar()" class="p-2 text-2xl">
-                <i class="fas fa-bars"></i>
+        <div class="md:hidden flex-shrink-0 h-14 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 sticky top-0 z-30">
+            <button onclick="toggleSidebar()" class="p-2 -ml-2 text-gray-300">
+                <i class="fas fa-bars text-xl"></i>
             </button>
-            <div id="mobileRoleTitle" class="font-semibold flex items-center gap-2 text-pink-300"></div>
-            <button onclick="newChat()" class="p-2 text-pink-400">
-                <i class="fas fa-plus"></i>
+            <div id="mobileRoleTitle" class="font-semibold flex items-center gap-2 text-pink-300 truncate max-w-[60%]"></div>
+            <button onclick="newChat()" class="p-2 -mr-2 text-pink-400">
+                <i class="fas fa-plus text-xl"></i>
             </button>
         </div>
 
-        <!-- 侧边栏 -->
-        <div id="sidebar" class="sidebar md:w-80 bg-gray-900 border-r border-gray-800 flex flex-col h-full fixed md:relative inset-y-0 left-0 z-50 w-72 pt-14 md:pt-0 overflow-hidden">
-            <!-- 标题 -->
-            <div class="p-4 border-b border-gray-800 flex items-center gap-3 bg-black">
-                <i class="fas fa-fire text-pink-500 text-2xl"></i>
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">深欲</h1>
-            </div>
-
-            <!-- API 设置 -->
-            <div class="p-4 border-b border-gray-800 space-y-3">
-                <input id="apiKey" type="password" placeholder="DeepSeek API Key (sk-...)" 
-                       class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm">
-                <div class="flex gap-2">
-                    <select id="model" class="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm">
-                        <option value="deepseek-chat">deepseek-chat</option>
-                        <option value="deepseek-reasoner">deepseek-reasoner</option>
-                    </select>
-                    <button onclick="saveSettings()" class="px-6 bg-pink-600 hover:bg-pink-700 rounded-xl text-sm font-medium">保存</button>
-                </div>
-            </div>
-
-            <!-- 角色列表 -->
-            <div class="p-4 border-b border-gray-800 flex-1 overflow-auto">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-sm uppercase tracking-widest text-gray-400">角色</h2>
-                    <button onclick="newCustomRole()" class="text-xs px-4 py-1 bg-gray-800 hover:bg-gray-700 rounded-full">+ 新建</button>
-                </div>
-                <div id="roleList" class="space-y-2"></div>
-            </div>
-
-            <!-- 系统提示词 -->
-            <div class="p-4 border-t border-gray-800">
-                <h2 class="text-sm uppercase tracking-widest text-gray-400 mb-2">系统提示词</h2>
-                <textarea id="systemPrompt" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded-2xl p-4 text-sm focus:border-pink-500"></textarea>
-                <div class="flex gap-2 mt-3">
-                    <button onclick="saveSystemPrompt()" class="flex-1 py-3 bg-pink-600 rounded-2xl text-sm">保存</button>
-                    <button onclick="resetSystemPrompt()" class="flex-1 py-3 bg-gray-700 rounded-2xl text-sm">默认</button>
-                </div>
-            </div>
-
-            <!-- 对话历史 -->
-            <div class="p-4 border-t border-gray-800 flex-1 flex flex-col">
-                <div class="flex justify-between mb-3">
-                    <h2 class="text-sm uppercase tracking-widest text-gray-400">对话历史</h2>
-                    <button onclick="newChat()" class="text-pink-400"><i class="fas fa-plus"></i></button>
-                </div>
-                <div id="historyList" class="flex-1 overflow-auto space-y-1 text-sm"></div>
+        <!-- 桌面顶部栏 -->
+        <div class="hidden md:flex flex-shrink-0 h-16 bg-gray-900 border-b border-gray-800 px-6 items-center justify-between">
+            <div id="currentRoleInfo" class="flex items-center gap-3"></div>
+            <div class="flex gap-4 text-sm">
+                <button onclick="clearCurrentChat()" class="px-4 py-2 hover:bg-gray-800 rounded-lg transition-colors"><i class="fas fa-eraser mr-2"></i>清空</button>
+                <button onclick="exportChat()" class="px-4 py-2 hover:bg-gray-800 rounded-lg transition-colors"><i class="fas fa-download mr-2"></i>导出</button>
+                <button onclick="importChat()" class="px-4 py-2 hover:bg-gray-800 rounded-lg transition-colors"><i class="fas fa-upload mr-2"></i>导入</button>
             </div>
         </div>
 
-        <!-- 主聊天区 -->
-        <div class="flex-1 flex flex-col w-full">
-            <!-- 桌面顶部栏 -->
-            <div class="hidden md:flex h-14 bg-gray-900 border-b border-gray-800 px-6 items-center justify-between">
-                <div id="currentRoleInfo" class="flex items-center gap-3"></div>
-                <div class="flex gap-6 text-sm">
-                    <button onclick="clearCurrentChat()" class="hover:text-pink-400">清空</button>
-                    <button onclick="exportChat()" class="hover:text-pink-400">导出</button>
-                    <button onclick="importChat()" class="hover:text-pink-400">导入</button>
-                </div>
-            </div>
+        <!-- 聊天内容 -->
+        <div id="chatContainer" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 chat-container bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:25px_25px] overscroll-contain"></div>
 
-            <!-- 聊天内容 -->
-            <div id="chatContainer" class="flex-1 overflow-auto p-4 md:p-6 space-y-6 chat-container bg-[radial-gradient(#374151_1px,transparent_1px)] [background-size:25px_25px]"></div>
-
-            <!-- 输入栏 -->
-            <div class="p-3 md:p-4 border-t border-gray-800 bg-gray-900">
-                <div class="max-w-4xl mx-auto flex gap-3">
-                    <textarea id="userInput" rows="2"
-                        class="flex-1 bg-gray-800 border border-gray-700 rounded-3xl px-5 py-4 focus:outline-none focus:border-pink-500 resize-y"
-                        placeholder="输入你的角色扮演内容..."></textarea>
-                    <button onclick="sendMessage()" 
-                            class="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-pink-500 to-rose-600 rounded-3xl flex items-center justify-center active:scale-95 transition-transform">
-                        <i class="fas fa-paper-plane text-xl"></i>
-                    </button>
-                </div>
+        <!-- 输入区 -->
+        <div class="flex-shrink-0 p-3 md:p-4 border-t border-gray-800 bg-gray-900 pb-[env(safe-area-inset-bottom,12px)]">
+            <div class="max-w-4xl mx-auto flex gap-2 md:gap-3 items-end">
+                <textarea id="userInput" rows="1"
+                    class="flex-1 bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 md:py-4 focus:outline-none focus:border-pink-500 resize-none max-h-32 min-h-[48px]"
+                    placeholder="输入你的角色扮演内容..." oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"></textarea>
+                <button onclick="sendMessage()" 
+                        class="w-12 h-12 md:w-14 md:h-14 flex-shrink-0 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center active:scale-95 transition-transform shadow-lg shadow-pink-500/20">
+                    <i class="fas fa-paper-plane text-lg md:text-xl"></i>
+                </button>
             </div>
         </div>
     </div>
 
     <!-- 编辑模态框 -->
-    <div id="editModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
-        <div class="bg-gray-900 rounded-3xl w-full max-w-2xl">
-            <div class="p-6">
-                <h3 class="text-lg mb-4">编辑 AI 回复</h3>
-                <textarea id="editContent" class="w-full h-80 bg-gray-800 rounded-2xl p-5"></textarea>
+    <div id="editModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-gray-900 rounded-3xl w-full max-w-2xl flex flex-col max-h-[90dvh]">
+            <div class="p-4 md:p-6 flex-1 flex flex-col min-h-0">
+                <h3 class="text-lg mb-4 font-semibold">编辑 AI 回复</h3>
+                <textarea id="editContent" class="flex-1 w-full bg-gray-800 border border-gray-700 rounded-2xl p-4 focus:outline-none focus:border-pink-500 resize-none min-h-[200px]"></textarea>
             </div>
-            <div class="p-4 border-t border-gray-700 flex justify-end gap-3">
-                <button onclick="closeEditModal()" class="px-6 py-3 text-gray-400">取消</button>
-                <button onclick="saveEditedMessage()" class="px-6 py-3 bg-pink-600 rounded-2xl">保存并继续</button>
+            <div class="p-4 border-t border-gray-800 flex justify-end gap-3 shrink-0">
+                <button onclick="closeEditModal()" class="px-5 py-2.5 text-gray-400 hover:bg-gray-800 rounded-xl transition-colors">取消</button>
+                <button onclick="saveEditedMessage()" class="px-5 py-2.5 bg-pink-600 hover:bg-pink-700 rounded-xl shadow-lg shadow-pink-500/20 transition-colors">保存并继续</button>
             </div>
         </div>
     </div>
@@ -146,13 +151,26 @@
         const presetRoles = [
             {id:"1", name:"学生女友", emoji:"💕", desc:"温柔黏人的18岁女友", prompt:"你是我青梅竹马的乖乖女友，我们偷偷在各种地方做爱。"},
             {id:"2", name:"绿茶学妹", emoji:"🍵", desc:"表面清纯内心骚浪", prompt:"你是我心机重的可爱学妹，喜欢用各种方式勾引我。"},
-            {id:"3", name:"霸道金主", emoji:"💰", desc:"占有欲极强的金主", prompt:"我是你的金主，你必须完全服从我的所有性要求。"},
+            {id:"3", name:"霸道金主", emoji:"💰", desc:"占有欲极强的金主", prompt:"你是我的金主，我必须完全服从你的所有性要求。"},
             {id:"4", name:"性奴", emoji:"⛓️", desc:"被彻底调教的性奴", prompt:"你是我训练好的性奴，只能叫我主人，随时准备被使用。"},
             {id:"5", name:"痴女", emoji:"🔥", desc:"性欲极强的痴女", prompt:"你是一个性欲爆棚的痴女，随时想和我激烈做爱。"}
         ];
 
         function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            const isOpen = sidebar.classList.contains('open');
+            
+            if (isOpen) {
+                sidebar.classList.remove('open');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            } else {
+                sidebar.classList.add('open');
+                backdrop.classList.remove('hidden');
+                void backdrop.offsetWidth;
+                backdrop.classList.remove('opacity-0');
+            }
         }
 
         function saveChats() {
@@ -184,7 +202,7 @@
 
         function saveSystemPrompt() {
             localStorage.setItem('system_prompt', document.getElementById('systemPrompt').value.trim());
-            alert('系统提示词已保存');
+            alert('✅ 系统提示词已保存');
         }
 
         function resetSystemPrompt() {
@@ -200,12 +218,12 @@
             presetRoles.forEach(role => {
                 const isActive = currentRole && currentRole.id === role.id;
                 const div = document.createElement('div');
-                div.className = `p-3 rounded-2xl flex gap-3 cursor-pointer transition-all ${isActive ? 'bg-gray-800 ring-1 ring-pink-500' : 'hover:bg-gray-800'}`;
+                div.className = `p-3 rounded-xl flex gap-3 cursor-pointer transition-all ${isActive ? 'bg-gray-800 ring-1 ring-pink-500 shadow-md' : 'hover:bg-gray-800'}`;
                 div.innerHTML = `
-                    <div class="w-10 h-10 flex items-center justify-center text-3xl">${role.emoji}</div>
-                    <div class="flex-1">
-                        <div class="font-medium">${role.name}</div>
-                        <div class="text-xs text-gray-400">${role.desc}</div>
+                    <div class="w-10 h-10 flex items-center justify-center text-2xl bg-gray-900 rounded-full shrink-0">${role.emoji}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-sm truncate">${role.name}</div>
+                        <div class="text-[11px] text-gray-400 truncate mt-0.5">${role.desc}</div>
                     </div>
                 `;
                 div.onclick = () => { selectRole(role); if(window.innerWidth < 768) toggleSidebar(); };
@@ -234,9 +252,9 @@
             renderCurrentRole();
             document.getElementById('chatContainer').innerHTML = `
                 <div class="h-full flex items-center justify-center text-gray-400">
-                    <div class="text-center">
-                        <div class="text-6xl mb-4">${currentRole ? currentRole.emoji : '💕'}</div>
-                        <p>开始与 <span class="text-pink-400">${currentRole ? currentRole.name : '角色'}</span> 的色情故事...</p>
+                    <div class="text-center px-4">
+                        <div class="text-5xl md:text-6xl mb-4 md:mb-6 animate-bounce">${currentRole ? currentRole.emoji : '💕'}</div>
+                        <p class="text-sm md:text-base">开始与 <span class="text-pink-400 font-medium">${currentRole ? currentRole.name : '角色'}</span> 的色情故事...</p>
                     </div>
                 </div>`;
             saveCurrentChat();
@@ -250,8 +268,10 @@
                 messages = chat.messages || [];
                 currentRole = chat.role;
                 renderCurrentRole();
+                renderRoles();
                 renderMessages();
                 renderHistory();
+                if(window.innerWidth < 768 && document.getElementById('sidebar').classList.contains('open')) toggleSidebar();
             }
         }
 
@@ -259,9 +279,9 @@
             const desktop = document.getElementById('currentRoleInfo');
             const mobile = document.getElementById('mobileRoleTitle');
             if (currentRole) {
-                const html = `<div class="text-3xl">${currentRole.emoji}</div><div><div class="font-semibold">${currentRole.name}</div></div>`;
+                const html = `<div class="text-2xl md:text-3xl">${currentRole.emoji}</div><div><div class="font-semibold text-base md:text-lg">${currentRole.name}</div></div>`;
                 desktop.innerHTML = html;
-                mobile.innerHTML = `${currentRole.emoji} ${currentRole.name}`;
+                mobile.innerHTML = `${currentRole.emoji} <span class="truncate">${currentRole.name}</span>`;
             }
         }
 
@@ -272,13 +292,13 @@
                 const div = document.createElement('div');
                 div.className = `flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`;
                 div.innerHTML = `
-                    <div class="message rounded-3xl px-5 py-4 ${msg.role === 'user' ? 'bg-gradient-to-br from-pink-600 to-purple-600' : 'bg-gray-800'}">
-                        <div class="prose prose-invert text-[15.5px] leading-relaxed" id="msg-${i}"></div>
+                    <div class="message rounded-2xl md:rounded-3xl px-4 py-3 md:px-5 md:py-4 ${msg.role === 'user' ? 'bg-gradient-to-br from-pink-600 to-purple-600 rounded-tr-sm shadow-md' : 'bg-gray-800 border border-gray-700 rounded-tl-sm shadow-sm'}">
+                        <div class="prose prose-invert text-[14.5px] md:text-[15.5px] leading-relaxed break-words" id="msg-${i}"></div>
                         ${msg.role === 'assistant' ? `
-                        <div class="flex gap-4 mt-3 text-xs opacity-70">
-                            <button onclick="editMessage(${i})" class="hover:text-pink-400"><i class="fas fa-edit"></i></button>
-                            <button onclick="copyMessage(${i})" class="hover:text-pink-400"><i class="fas fa-copy"></i></button>
-                            <button onclick="deleteMessage(${i})" class="hover:text-red-400"><i class="fas fa-trash"></i></button>
+                        <div class="flex gap-4 mt-3 text-[11px] md:text-xs opacity-60">
+                            <button onclick="editMessage(${i})" class="hover:text-pink-400 transition-colors p-1"><i class="fas fa-edit"></i></button>
+                            <button onclick="copyMessage(${i})" class="hover:text-pink-400 transition-colors p-1"><i class="fas fa-copy"></i></button>
+                            <button onclick="deleteMessage(${i})" class="hover:text-red-400 transition-colors p-1"><i class="fas fa-trash"></i></button>
                         </div>` : ''}
                     </div>
                 `;
@@ -318,11 +338,11 @@
 
         function copyMessage(i) {
             navigator.clipboard.writeText(messages[i].content);
-            alert('已复制');
+            alert('已复制到剪贴板');
         }
 
         function deleteMessage(i) {
-            if (confirm('删除这条消息？')) {
+            if (confirm('确定删除这条消息？')) {
                 messages.splice(i, 1);
                 renderMessages();
                 saveCurrentChat();
@@ -363,6 +383,7 @@
             }
             addMessage('user', text);
             input.value = '';
+            input.style.height = '';
             await generateAIResponse();
         }
 
@@ -416,7 +437,7 @@
                 }
             } catch (e) {
                 console.error(e);
-                tempMsg.content = `【错误】${e.message}\n请检查API Key和网络`;
+                tempMsg.content = `【错误】${e.message}\n请检查 API Key 和网络`;
             }
             renderMessages();
             saveCurrentChat();
@@ -469,16 +490,6 @@
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     sendMessage();
-                }
-            });
-
-            // 点击空白处关闭侧边栏（移动端）
-            document.addEventListener('click', (e) => {
-                if (window.innerWidth < 768) {
-                    const sidebar = document.getElementById('sidebar');
-                    if (!sidebar.contains(e.target) && !e.target.closest('button[onclick="toggleSidebar()"]')) {
-                        sidebar.classList.remove('open');
-                    }
                 }
             });
         };
