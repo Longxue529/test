@@ -437,11 +437,13 @@
             await generateAIResponse();
         }
 
-        // 上下文总结
+    // ==================== 改进后的总结功能 ====================
         async function summarizeHistory() {
             if (messages.length < MAX_MESSAGES_BEFORE_SUMMARY) return;
 
-            const toSummarize = messages.slice(0, -12);
+            const recent = messages.slice(-15); // 保留最近15条
+            const toSummarize = messages.slice(0, -15);
+
             try {
                 const res = await fetch('https://api.deepseek.com/chat/completions', {
                     method: 'POST',
@@ -452,22 +454,31 @@
                     body: JSON.stringify({
                         model: "deepseek-chat",
                         messages: [
-                            { role: "system", content: "请用简洁的中文总结以下对话的关键情节、角色关系和重要事件。" },
-                            { role: "user", content: toSummarize.map(m => `${m.role}: ${m.content}`).join('\n') }
+                            { 
+                                role: "system", 
+                                content: "你是一位专业的角色扮演对话总结助手。请用简洁但完整的语言总结以下对话，**必须保留角色设定、核心关系、重要剧情转折和情感线**。" 
+                            },
+                            { 
+                                role: "user", 
+                                content: "请总结：\n" + toSummarize.map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`).join('\n') 
+                            }
                         ],
                         temperature: 0.7,
-                        max_tokens: 600
+                        max_tokens: 800
                     })
                 });
+
                 const data = await res.json();
                 const summary = data.choices[0].message.content;
 
                 messages = [
                     { role: "system", content: `【历史对话总结】${summary}` },
-                    ...messages.slice(-12)
+                    ...recent
                 ];
+                console.log("✅ 上下文已智能总结");
             } catch (e) {
-                messages = messages.slice(-20);
+                console.error("总结失败", e);
+                messages = messages.slice(-25); // 失败时保守截断
             }
         }
 
